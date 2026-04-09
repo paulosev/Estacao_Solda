@@ -3,30 +3,22 @@
 #include "hal_encoder.h"
 #include "controle_temp.h"
 #include <Arduino.h>
-#include <stdio.h>
 
 /*
  * ============================================================
- * VARIÁVEIS DE ESTADO
+ * VARIÁVEIS
  * ============================================================
  */
 
-// Setpoint de temperatura
 static float setpoint = 200;
-
-// Indica se está em modo edição
 static bool editando = false;
 
-// Controle de tempo (evita atualização excessiva)
 static uint32_t last_update = 0;
-
-// Debounce do botão
 static uint32_t last_click = 0;
-
 
 /*
  * ============================================================
- * INICIALIZAÇÃO
+ * INIT
  * ============================================================
  */
 void ui_init()
@@ -35,92 +27,99 @@ void ui_init()
     hal_encoder_init();
 }
 
+/*
+ * ============================================================
+ * DESENHA BARRA DE POTÊNCIA
+ * ============================================================
+ */
+static void draw_bar(int x, int y, int w, int h, int percent)
+{
+    int fill = (w * percent) / 100;
+
+    // contorno
+    hal_display_print_str(x, y - 2, "[");
+    hal_display_print_str(x + w + 2, y - 2, "]");
+
+    // preenchimento simples
+    for (int i = 0; i < fill; i += 4)
+    {
+        hal_display_print_str(x + i, y, "|");
+    }
+}
 
 /*
  * ============================================================
- * LOOP PRINCIPAL DA UI
+ * LOOP
  * ============================================================
  */
 void ui_update()
 {
-    /*
-     * ================= ENCODER =================
-     */
-
     int8_t delta = hal_encoder_get_delta();
 
     if (editando)
     {
-        // Ajusta temperatura em passos de 5°C
         setpoint += delta * 5;
 
-        // Limites de segurança
         if (setpoint < 50) setpoint = 50;
         if (setpoint > 450) setpoint = 450;
 
-        // Atualiza controle
         controle_set_temp(setpoint);
     }
 
-    /*
-     * ================= BOTÃO =================
-     */
-
-    // Detecta clique com debounce não bloqueante
     if (hal_encoder_pressed() && (millis() - last_click > 200))
     {
         last_click = millis();
         editando = !editando;
     }
 
-    /*
-     * ================= ATUALIZAÇÃO =================
-     */
-
-    // Atualiza a cada 100ms
     if (millis() - last_update < 100)
         return;
 
     last_update = millis();
 
-    float temp = controle_get_temp();
+    int temp = (int)controle_get_temp();
+    int sp   = (int)setpoint;
+    int pwr  = (int)controle_get_power();
 
-    char buffer[32];
-
-    /*
-     * ================= DESENHO (U8g2 PAGE MODE) =================
-     */
+    bool standby = controle_is_standby();
 
     hal_display_begin();
 
     do
     {
         /*
-         * ----------- TEMPERATURA (GRANDE) -----------
+         * ----------- TEMP -----------
          */
-
         hal_display_font_large();
-
-        sprintf(buffer, "%.0fC", temp);
-        hal_display_print(0, 30, buffer);
+        hal_display_print_int(0, 30, temp);
+        hal_display_print_str(60, 30, "C");
 
         /*
-         * ----------- SETPOINT -----------
+         * ----------- SETPOINT (com destaque) -----------
          */
-
         hal_display_font_small();
 
-        sprintf(buffer, "SET: %.0fC", setpoint);
-        hal_display_print(0, 50, buffer);
+        if (editando)
+            hal_display_print_str(0, 50, ">");
+        else
+            hal_display_print_str(0, 50, " ");
+
+        hal_display_print_str(10, 50, "SET:");
+        hal_display_print_int(45, 50, sp);
+        hal_display_print_str(75, 50, "C");
 
         /*
-         * ----------- MODO -----------
+         * ----------- POWER BAR -----------
          */
+        draw_bar(0, 60, 80, 5, pwr);
 
-        if (editando)
-            hal_display_print(80, 50, "EDIT");
+        /*
+         * ----------- STATUS -----------
+         */
+        if (standby)
+            hal_display_print_str(90, 60, "STBY");
         else
-            hal_display_print(80, 50, "RUN");
+            hal_display_print_str(90, 60, "RUN");
 
-    } while (hal_display_next()); // <-- CORREÇÃO AQUI
+    } while (hal_display_next());
 }

@@ -1,25 +1,28 @@
 #pragma once
 
 /*
- * Camada de controle térmico
+ * ============================================================
+ * CONTROLE DE TEMPERATURA (PID + Sigma-Delta)
+ * ============================================================
  */
 
-// Códigos de erro do sensor
-#define SENSOR_OK          0
-#define SENSOR_ABERTO     -1    // termopar desconectado (ADC > 3900)
-#define SENSOR_CURTO      -2    // curto ou inversão (ADC < 5)
-
-// Inicializa PID e variáveis internas
+// Inicializa controle
 void controle_init();
 
-// Executa um ciclo de controle (chamar a cada CONTROLE_PERIODO_MS)
+// Atualiza controle (loop principal)
 void controle_update();
 
-// Define temperatura alvo (°C). Use 0 para desligar.
+// Define setpoint
 void controle_set_temp(float temp);
 
-// Retorna temperatura atual (°C)
+// Retorna temperatura atual
 float controle_get_temp();
 
-// Retorna último status do sensor (SENSOR_OK, SENSOR_ABERTO, SENSOR_CURTO)
-int controle_get_sensor_status();
+// Retorna potência (0–100%)
+float controle_get_power();
+
+// Define velocidade do fan (0–100%)
+void controle_set_fan(float fan);
+
+// Retorna estado standby
+bool controle_is_standby();

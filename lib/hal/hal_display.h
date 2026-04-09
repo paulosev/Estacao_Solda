@@ -6,32 +6,24 @@
  * ============================================================
  *
  * Interface de abstração do display OLED
- * usando biblioteca U8g2 em modo PAGE
- *
- * IMPORTANTE:
- * No modo page, o desenho precisa ser feito dentro de:
- *
- * firstPage()
- * do {
- *    draw...
- * } while(nextPage());
+ * com suporte a:
+ *  - texto
+ *  - números inteiros (sem sprintf!)
  */
 
 // Inicializa display
 void hal_display_init();
 
-// Inicia o frame (equivalente ao firstPage)
+// Controle de frame (U8g2 page mode)
 void hal_display_begin();
-
-// Avança página (equivalente ao nextPage)
-// Retorna true enquanto ainda há páginas para desenhar
 bool hal_display_next();
 
-// Escreve texto na tela
-void hal_display_print(int x, int y, const char* txt);
+// Texto
+void hal_display_print_str(int x, int y, const char* txt);
 
-// Seleciona fonte pequena
+// Inteiro (sem conversão manual)
+void hal_display_print_int(int x, int y, int value);
+
+// Fontes
 void hal_display_font_small();
-
-// Seleciona fonte grande
 void hal_display_font_large();

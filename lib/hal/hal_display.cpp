@@ -5,12 +5,8 @@
 
 /*
  * ============================================================
- * CONFIGURAÇÃO DO DISPLAY
+ * CONFIGURAÇÃO
  * ============================================================
- *
- * SSD1306 128x64 via I2C (hardware)
- *
- * _1_ = modo PAGE (baixo uso de RAM)
  */
 
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
@@ -29,24 +25,14 @@ void hal_display_init()
 
 /*
  * ============================================================
- * INÍCIO DO FRAME
+ * CONTROLE DE FRAME
  * ============================================================
- *
- * Deve ser chamado antes do loop de desenho
  */
 void hal_display_begin()
 {
     u8g2.firstPage();
 }
 
-
-/*
- * ============================================================
- * PRÓXIMA PÁGINA
- * ============================================================
- *
- * Retorna true enquanto ainda há páginas
- */
 bool hal_display_next()
 {
     return u8g2.nextPage();
@@ -55,12 +41,21 @@ bool hal_display_next()
 
 /*
  * ============================================================
- * PRINT DE TEXTO
+ * PRINT
  * ============================================================
  */
-void hal_display_print(int x, int y, const char* txt)
+
+// Texto simples
+void hal_display_print_str(int x, int y, const char* txt)
 {
     u8g2.drawStr(x, y, txt);
+}
+
+// Inteiro direto (sem sprintf)
+void hal_display_print_int(int x, int y, int value)
+{
+    u8g2.setCursor(x, y);
+    u8g2.print(value);
 }
 
 
@@ -70,13 +65,13 @@ void hal_display_print(int x, int y, const char* txt)
  * ============================================================
  */
 
-// Fonte pequena (boa para labels)
+// Fonte pequena
 void hal_display_font_small()
 {
     u8g2.setFont(u8g2_font_6x10_tf);
 }
 
-// Fonte grande (ótima para temperatura)
+// Fonte grande (temperatura)
 void hal_display_font_large()
 {
     u8g2.setFont(u8g2_font_logisoso24_tf);

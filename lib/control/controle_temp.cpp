@@ -1,280 +1,197 @@
 #include "controle_temp.h"
 #include "hal_io.h"
-#include "config.h"
 #include <QuickPID.h>
-#include <math.h>
+#include <Arduino.h>
 
 /*
- * ================================================================
- * VARIÁVEIS INTERNAS
- * ================================================================
+ * ============================================================
+ * VARIÁVEIS
+ * ============================================================
  */
 
-static float temperatura_atual = 25.0f;
-static float setpoint           = 0.0f;
-static float entrada_pid;
-static float saida_pid;
-static int   sensor_status = SENSOR_OK;
+static float temp = 25;
+static float temp_filtrada = 25;
+static float setpoint = 200;
+static float power = 0;
+
+// PID
+static float input, output, set;
+QuickPID pid(&input, &output, &set, 2.0, 0.5, 1.0, QuickPID::Action::direct);
+
+// Sigma-delta
+static float acumulador = 0;
+
+// Fan (0–100%)
+static float fan = 100;
+
+// Standby
+static bool standby = false;
 
 /*
- * Instância do PID
- * Saída limitada dinamicamente para deixar espaço ao feedforward.
+ * ============================================================
+ * CONVERSÕES ADC → TEMPERATURA
+ * (placeholder — depois calibrar!)
+ * ============================================================
  */
-static QuickPID pid(&entrada_pid, &saida_pid, &setpoint,
-                    PID_KP, PID_KI, PID_KD,
-                    QuickPID::Action::direct);
-
-/*
- * Acumulador sigma-delta
- */
-static float acumulador = 0.0f;
-
-
-/*
- * ================================================================
- * LEITURA DO NTC — Compensação de junta fria
- * ================================================================
- *
- * Divisor: +3.3V → R11 (10k) → nó → RT1 NTC → GND
- * NTC no lado baixo → r = R_pullup * v / (VREF - v)
- */
-static float ler_ntc()
+static float adc_to_temp(uint16_t adc)
 {
-    uint16_t adc = hal_adc_ntc();
+    float voltage = (adc / 4095.0f) * 3.3f;
 
-    float v = (adc / ADC_MAX) * VREF;
+    // ganho do amp (~151)
+    float temp = voltage * 100.0f;
 
-    // Proteção contra divisão por zero nas bordas da faixa ADC
-    if (v < 0.01f) v = 0.01f;
-    if (v > VREF - 0.01f) v = VREF - 0.01f;
-
-    // Resistência do NTC — NTC no lado baixo do divisor
-    float r = NTC_PULLUP * v / (VREF - v);
-
-    // Equação Beta → temperatura em Kelvin
-    float tempK = 1.0f / ((1.0f / NTC_T0) +
-                          (1.0f / NTC_BETA) * logf(r / NTC_R0));
-
-    return tempK - 273.15f;
+    return temp;
 }
 
-
 /*
- * ================================================================
- * LEITURA DO TERMOPAR — com detecção de falha
- * ================================================================
- *
- * Retorna temperatura diferencial (°C) ou valor negativo em caso de falha:
- *   SENSOR_ABERTO : ADC > TERMOPAR_ADC_MAX (pull-up R10 puxou para 3.3V)
- *   SENSOR_CURTO  : ADC < TERMOPAR_ADC_MIN
+ * ============================================================
+ * NTC → temperatura ambiente (junta fria)
+ * ============================================================
  */
-static float ler_termopar()
+static float ntc_to_temp(uint16_t adc)
 {
-    uint16_t adc = hal_adc_termopar();
+    // placeholder simples
+    float voltage = (adc / 4095.0f) * 3.3f;
 
-    if (adc > TERMOPAR_ADC_MAX)
-    {
-        sensor_status = SENSOR_ABERTO;
-        return (float)SENSOR_ABERTO;
-    }
+    float temp = voltage * 50.0f;
 
-    if (adc < TERMOPAR_ADC_MIN)
-    {
-        sensor_status = SENSOR_CURTO;
-        return (float)SENSOR_CURTO;
-    }
-
-    sensor_status = SENSOR_OK;
-
-    float v = (adc / ADC_MAX) * VREF;
-
-    // V_out = T_diff * 41µV/°C * ganho 151
-    // T_diff = V_out / (41e-6 * 151) = V_out * TERMOPAR_COEF
-    return v * TERMOPAR_COEF;
+    return temp;
 }
 
-
 /*
- * ================================================================
- * TEMPERATURA COMPENSADA
- * ================================================================
- *
- * Temperatura real = diferencial do termopar + temperatura ambiente (NTC)
- * Retorna valor negativo se sensor com falha.
+ * ============================================================
+ * FILTRO EXPONENCIAL
+ * ============================================================
  */
-static float calcular_temperatura()
+static float filtro(float in)
 {
-    float temp_tc = ler_termopar();
-
-    if (temp_tc < 0.0f)
-        return temp_tc;   // propaga código de erro
-
-    float temp_amb = ler_ntc();
-
-    return temp_tc + temp_amb;
+    const float alpha = 0.1;
+    temp_filtrada += alpha * (in - temp_filtrada);
+    return temp_filtrada;
 }
 
-
 /*
- * ================================================================
- * FEEDFORWARD
- * ================================================================
- *
- * Estima potência necessária com base no setpoint e no fluxo de ar,
- * antes do PID atuar. Reduz overshoot e melhora resposta dinâmica.
- *
- * fan_duty: 0–1000 (permil)
- * Retorna: contribuição em % de potência (0–FF_MAX)
- */
-static float calcular_feedforward(float sp, uint16_t fan_duty)
-{
-    float fan_norm = fan_duty / 1000.0f;   // normaliza para 0.0–1.0
-
-    float ff = (sp * FF_K_TEMP) + (fan_norm * FF_K_FAN * 100.0f);
-
-    // Limita para não sufocar o PID
-    if (ff > FF_MAX) ff = FF_MAX;
-    if (ff < 0.0f)   ff = 0.0f;
-
-    return ff;
-}
-
-
-/*
- * ================================================================
- * INICIALIZAÇÃO
- * ================================================================
+ * ============================================================
+ * INIT
+ * ============================================================
  */
 void controle_init()
 {
     pid.SetMode(QuickPID::Control::automatic);
-
-    // Anti-windup: limita integral quando a saída satura
-    pid.SetAntiWindupMode(QuickPID::iAwMode::iAwClamp);
-
-    // Saída inicial restrita — feedforward completará o restante
-    pid.SetOutputLimits(0, 100.0f - FF_MAX);
+    pid.SetOutputLimits(0, 100);
 }
 
-
 /*
- * ================================================================
- * LOOP DE CONTROLE  (chamar a cada CONTROLE_PERIODO_MS)
- * ================================================================
+ * ============================================================
+ * LOOP PRINCIPAL
+ * ============================================================
  */
 void controle_update()
 {
-    // --- Timing determinístico ---
-    static uint32_t ultimo_ms = 0;
-    uint32_t agora = millis();
-    if (agora - ultimo_ms < (uint32_t)CONTROLE_PERIODO_MS)
-        return;
-    ultimo_ms = agora;
+    /*
+     * ----------- LEITURA ADC -----------
+     */
+    uint16_t adc_tc  = hal_adc_termopar();
+    uint16_t adc_ntc = hal_adc_ntc();
 
+    float temp_tc  = adc_to_temp(adc_tc);
+    float temp_ntc = ntc_to_temp(adc_ntc);
 
-    // ============================================================
-    // 1. LEITURA DE TEMPERATURA
-    // ============================================================
+    /*
+     * ----------- COMPENSAÇÃO JUNTA FRIA -----------
+     */
+    temp = temp_tc + temp_ntc;
 
-    float t = calcular_temperatura();
+    /*
+     * ----------- FILTRO -----------
+     */
+    input = filtro(temp);
 
-    if (t < 0.0f)
+    /*
+     * ----------- STANDBY (dock magnético) -----------
+     */
+    if (!hal_chave_ligada())
     {
-        // Falha de sensor — desliga aquecimento imediatamente
-        hal_triac_write(false);
-        hal_fan_write(1000);    // FAN no máximo para resfriar
-        acumulador = 0.0f;
-        return;
-    }
-
-    temperatura_atual = t;
-    entrada_pid       = t;
-
-
-    // ============================================================
-    // 2. CONTROLE DO FAN (proporcional à temperatura)
-    // ============================================================
-
-    uint16_t fan = 0;
-
-    if (temperatura_atual < TEMP_MIN_FAN_STOP)
-    {
-        // Frio → pode desligar o FAN
-        fan = 0;
+        standby = true;
+        set = 50; // temperatura segura
     }
     else
     {
-        // Proporcional: 70°C → 20%, 400°C → 100%
-        fan = (uint16_t)map((long)temperatura_atual, 70, 400, 200, 1000);
-        fan = constrain(fan, 200, 1000);
-
-        // Acima de 300°C o FAN nunca fica abaixo de 50%
-        if (temperatura_atual > TEMP_MIN_FAN_SAFE && fan < 500)
-            fan = 500;
+        standby = false;
+        set = setpoint;
     }
 
-    hal_fan_write(fan);
-
-
-    // ============================================================
-    // 3. CÁLCULO DE POTÊNCIA (Feedforward + PID)
-    // ============================================================
-
-    float ff = calcular_feedforward(setpoint, fan);
-
-    // Reserva espaço no PID para o feedforward não saturar a saída total
-    pid.SetOutputLimits(0, 100.0f - ff);
-
+    /*
+     * ----------- PID -----------
+     */
     pid.Compute();
+    power = output;
 
-    float saida_total = saida_pid + ff;
+    /*
+     * ----------- COMPENSAÇÃO POR FAN -----------
+     */
+    float power_comp = power + (fan * 0.2f);
+    if (power_comp > 100) power_comp = 100;
 
-    // Saturação final
-    if (saida_total > 100.0f) saida_total = 100.0f;
-    if (saida_total <   0.0f) saida_total = 0.0f;
+    /*
+     * ----------- SIGMA-DELTA -----------
+     */
+    acumulador += power_comp;
 
-
-    // ============================================================
-    // 4. SIGMA-DELTA → sinal ON/OFF para o TRIAC
-    // ============================================================
-    //
-    // Distribui a energia ao longo do tempo de forma uniforme.
-    // O MOC3443 garante acionamento sempre no zero-cross da rede.
-
-    acumulador += saida_total;
-
-    // Evita acúmulo negativo (sistema frio por muito tempo)
-    if (acumulador < 0.0f) acumulador = 0.0f;
-
-    bool liga = false;
-
-    if (acumulador >= SIGMA_LIMITE)
+    if (acumulador >= 100)
     {
-        liga = true;
-        acumulador -= SIGMA_LIMITE;
+        hal_triac_write(true);
+        acumulador -= 100;
+    }
+    else
+    {
+        hal_triac_write(false);
     }
 
-    hal_triac_write(liga);
+    /*
+     * ----------- CONTROLE FAN -----------
+     */
+
+    // Limite mínimo em alta temperatura
+    if (input > 300 && fan < 50)
+        fan = 50;
+
+    // Desliga fan frio
+    if (input < 70)
+        fan = 0;
+
+    // Converte 0–100% → 0–1000 (permil)
+    uint16_t fan_pwm = (fan * 10.0f);
+
+    hal_fan_write(fan_pwm);
 }
 
-
 /*
- * ================================================================
- * API PÚBLICA
- * ================================================================
+ * ============================================================
+ * GET/SET
+ * ============================================================
  */
-
-void controle_set_temp(float temp)
+void controle_set_temp(float t)
 {
-    setpoint = (temp < 0.0f) ? 0.0f : temp;
+    setpoint = t;
 }
 
 float controle_get_temp()
 {
-    return temperatura_atual;
+    return input;
 }
 
-int controle_get_sensor_status()
+float controle_get_power()
 {
-    return sensor_status;
+    return power;
+}
+
+void controle_set_fan(float f)
+{
+    fan = f;
+}
+
+bool controle_is_standby()
+{
+    return standby;
 }

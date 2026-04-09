@@ -1,3 +1,12 @@
+# Estação de Ar Quente SMD — v4
+UI: barra de potência (sigma-delta) destaque quando editando animação leve 
+Controle: compensação por airflow (fan) filtro melhor no ADC calibração do termopar 
+Produto: standby automático perfis de temperatura proteção térmica
+
+# Estação de Ar Quente SMD — v3
+
+Interface gráfica para display oled 0,96" SSD1336, encoder ky-040 e u8g2 page
+
 # Estação de Ar Quente SMD — v2
 
 Projeto de estação de retrabalho SMD com controle digital avançado.
