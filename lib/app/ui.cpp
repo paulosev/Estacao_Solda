@@ -2,6 +2,7 @@
 #include "hal_display.h"
 #include "hal_encoder.h"
 #include "controle_temp.h"
+#include <Arduino.h>
 #include <stdio.h>
 
 /*

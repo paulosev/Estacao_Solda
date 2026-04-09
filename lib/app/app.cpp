@@ -1,3 +1,4 @@
+#include "ui.h"
 #include "app.h"
 #include "controle_temp.h"
 #include "hal_io.h"
