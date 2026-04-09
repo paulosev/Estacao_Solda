@@ -1,16 +1,6 @@
 #include "hal_encoder.h"
 #include <Arduino.h>
-
-/*
- * ============================================================
- * CONFIGURAÇÃO DOS PINOS
- * ============================================================
- *
- * Ideal mover para config.h depois
- */
-#define ENC_A   PA6
-#define ENC_B   PA7
-#define ENC_BTN PA5
+#include "config.h"
 
 /*
  * Armazena último estado do canal A
@@ -27,12 +17,12 @@ static int last_state = 0;
 void hal_encoder_init()
 {
     // Entradas com pull-up interno
-    pinMode(ENC_A, INPUT_PULLUP);
-    pinMode(ENC_B, INPUT_PULLUP);
-    pinMode(ENC_BTN, INPUT_PULLUP);
+    pinMode(PIN_ENC_CLK, INPUT_PULLUP);
+    pinMode(PIN_ENC_DT, INPUT_PULLUP);
+    pinMode(PIN_ENC_SW, INPUT_PULLUP);
 
     // Estado inicial
-    last_state = digitalRead(ENC_A);
+    last_state = digitalRead(PIN_ENC_CLK);
 }
 
 
@@ -47,13 +37,13 @@ void hal_encoder_init()
  */
 int8_t hal_encoder_get_delta()
 {
-    int current = digitalRead(ENC_A);
+    int current = digitalRead(PIN_ENC_CLK);
 
     // Detecta mudança de estado
     if (current != last_state)
     {
         // Determina direção
-        if (digitalRead(ENC_B) != current)
+        if (digitalRead(PIN_ENC_DT) != current)
         {
             last_state = current;
             return +1; // sentido horário
@@ -78,5 +68,5 @@ int8_t hal_encoder_get_delta()
  */
 bool hal_encoder_pressed()
 {
-    return digitalRead(ENC_BTN) == LOW;
+    return digitalRead(PIN_ENC_SW) == LOW;
 }

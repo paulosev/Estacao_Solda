@@ -19,6 +19,16 @@
 // Chave magnética (pull-up interno)
 #define PIN_CHAVE        PA4
 
+// Display I2C
+#define PIN_I2C_SCL      PB6
+#define PIN_I2C_SDA      PB7
+
+// Encoder rotativo (KY-040)
+
+#define PIN_ENC_CLK      PB10 // CLK (A)
+#define PIN_ENC_DT       PB11 // DT (B)
+#define PIN_ENC_SW       PB12 // SW (botão)
+
 
 /*
  * ================= PARÂMETROS DE CONTROLE =================

@@ -1,4 +1,5 @@
 #include "hal_display.h"
+#include "config.h"
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <Wire.h>
@@ -19,6 +20,9 @@ U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
  */
 void hal_display_init()
 {
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    Wire.setClock(400000); // 400kHz (rápido e estável)
+
     u8g2.begin();
 }
 
