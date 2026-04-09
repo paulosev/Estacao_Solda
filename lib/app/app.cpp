@@ -24,7 +24,11 @@ static bool sistema_ligado = false;
  */
 void app_init()
 {
+    // Incializa controle de temperatura
     controle_init();
+
+    // Inicializa interface gráfica
+    ui_init();
 }
 
 
@@ -59,4 +63,7 @@ void app_update()
         // Executa ciclo de controle térmico
         controle_update();
     }
+
+    // Atualiza interface do usuário
+    ui_update();
 }
