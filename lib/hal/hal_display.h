@@ -2,26 +2,36 @@
 
 /*
  * ============================================================
- * HAL DISPLAY
+ * HAL DISPLAY (U8g2 - modo page)
  * ============================================================
  *
- * Camada de abstração do display OLED (SSD1306)
- * Responsável por:
- *  - Inicialização do display
- *  - Escrita de texto
- *  - Atualização da tela
+ * Interface de abstração do display OLED
+ * usando biblioteca U8g2 em modo PAGE
  *
- * Isso desacopla a aplicação da biblioteca gráfica
+ * IMPORTANTE:
+ * No modo page, o desenho precisa ser feito dentro de:
+ *
+ * firstPage()
+ * do {
+ *    draw...
+ * } while(nextPage());
  */
 
-// Inicializa o display (I2C + SSD1306)
+// Inicializa display
 void hal_display_init();
 
-// Limpa o buffer interno (não atualiza a tela ainda)
-void hal_display_clear();
+// Inicia o frame (equivalente ao firstPage)
+void hal_display_begin();
 
-// Envia o buffer para o display físico
-void hal_display_update();
+// Avança página (equivalente ao nextPage)
+// Retorna true enquanto ainda há páginas para desenhar
+bool hal_display_next();
 
-// Escreve texto em posição (x,y)
+// Escreve texto na tela
 void hal_display_print(int x, int y, const char* txt);
+
+// Seleciona fonte pequena
+void hal_display_font_small();
+
+// Seleciona fonte grande
+void hal_display_font_large();

@@ -1,26 +1,19 @@
 #include "hal_display.h"
+#include <Arduino.h>
+#include <U8g2lib.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
 /*
  * ============================================================
  * CONFIGURAÇÃO DO DISPLAY
  * ============================================================
+ *
+ * SSD1306 128x64 via I2C (hardware)
+ *
+ * _1_ = modo PAGE (baixo uso de RAM)
  */
 
-// Resolução do OLED
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-
-// Endereço I2C padrão (pode variar: 0x3C ou 0x3D)
-#define OLED_ADDR 0x3C
-
-/*
- * Objeto global do display
- * Usa I2C (Wire) e sem pino de reset (-1)
- */
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 
 /*
@@ -30,45 +23,33 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
  */
 void hal_display_init()
 {
-    // Inicializa barramento I2C
-    Wire.begin();
-
-    // Inicializa o display
-    display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
-
-    // Limpa buffer interno
-    display.clearDisplay();
-
-    // Envia tela limpa
-    display.display();
+    u8g2.begin();
 }
 
 
 /*
  * ============================================================
- * LIMPA BUFFER
+ * INÍCIO DO FRAME
  * ============================================================
  *
- * Importante:
- * - Não limpa diretamente o display físico
- * - Apenas o buffer de memória
+ * Deve ser chamado antes do loop de desenho
  */
-void hal_display_clear()
+void hal_display_begin()
 {
-    display.clearDisplay();
+    u8g2.firstPage();
 }
 
 
 /*
  * ============================================================
- * ATUALIZA DISPLAY
+ * PRÓXIMA PÁGINA
  * ============================================================
  *
- * Envia o conteúdo do buffer para o display
+ * Retorna true enquanto ainda há páginas
  */
-void hal_display_update()
+bool hal_display_next()
 {
-    display.display();
+    return u8g2.nextPage();
 }
 
 
@@ -76,18 +57,27 @@ void hal_display_update()
  * ============================================================
  * PRINT DE TEXTO
  * ============================================================
- *
- * x, y → posição em pixels
  */
 void hal_display_print(int x, int y, const char* txt)
 {
-    display.setCursor(x, y);
+    u8g2.drawStr(x, y, txt);
+}
 
-    // Tamanho da fonte (1 = padrão)
-    display.setTextSize(1);
 
-    // Cor branca (OLED monocromático)
-    display.setTextColor(SSD1306_WHITE);
+/*
+ * ============================================================
+ * FONTES
+ * ============================================================
+ */
 
-    display.print(txt);
+// Fonte pequena (boa para labels)
+void hal_display_font_small()
+{
+    u8g2.setFont(u8g2_font_6x10_tf);
+}
+
+// Fonte grande (ótima para temperatura)
+void hal_display_font_large()
+{
+    u8g2.setFont(u8g2_font_logisoso24_tf);
 }

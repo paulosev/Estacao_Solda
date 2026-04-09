@@ -11,14 +11,17 @@
  * ============================================================
  */
 
-// Temperatura alvo (setpoint)
+// Setpoint de temperatura
 static float setpoint = 200;
 
-// Define se estamos editando o setpoint
+// Indica se está em modo edição
 static bool editando = false;
 
-// Controle de atualização da tela (evita flicker)
+// Controle de tempo (evita atualização excessiva)
 static uint32_t last_update = 0;
+
+// Debounce do botão
+static uint32_t last_click = 0;
 
 
 /*
@@ -35,27 +38,27 @@ void ui_init()
 
 /*
  * ============================================================
- * LOOP DA INTERFACE
+ * LOOP PRINCIPAL DA UI
  * ============================================================
  */
 void ui_update()
 {
     /*
-     * ================= LEITURA DO ENCODER =================
+     * ================= ENCODER =================
      */
 
     int8_t delta = hal_encoder_get_delta();
 
-    // Se estiver em modo edição, altera o setpoint
     if (editando)
     {
+        // Ajusta temperatura em passos de 5°C
         setpoint += delta * 5;
 
         // Limites de segurança
         if (setpoint < 50) setpoint = 50;
         if (setpoint > 450) setpoint = 450;
 
-        // Atualiza controle térmico
+        // Atualiza controle
         controle_set_temp(setpoint);
     }
 
@@ -63,20 +66,19 @@ void ui_update()
      * ================= BOTÃO =================
      */
 
-    if (hal_encoder_pressed())
+    // Detecta clique com debounce não bloqueante
+    if (hal_encoder_pressed() && (millis() - last_click > 200))
     {
-        delay(200); // debounce simples
-
-        // Alterna entre modo RUN e AJUSTE
+        last_click = millis();
         editando = !editando;
     }
 
     /*
-     * ================= ATUALIZAÇÃO DO DISPLAY =================
+     * ================= ATUALIZAÇÃO =================
      */
 
-    // Atualiza a cada 200 ms
-    if (millis() - last_update < 200)
+    // Atualiza a cada 100ms
+    if (millis() - last_update < 100)
         return;
 
     last_update = millis();
@@ -85,30 +87,40 @@ void ui_update()
 
     char buffer[32];
 
-    hal_display_clear();
-
     /*
-     * Linha 1: temperatura atual
+     * ================= DESENHO (U8g2 PAGE MODE) =================
      */
-    sprintf(buffer, "Temp: %.1f C", temp);
-    hal_display_print(0, 0, buffer);
 
-    /*
-     * Linha 2: setpoint
-     */
-    sprintf(buffer, "Set : %.0f C", setpoint);
-    hal_display_print(0, 16, buffer);
+    hal_display_begin();
 
-    /*
-     * Linha 3: estado do sistema
-     */
-    if (editando)
-        hal_display_print(0, 32, "Modo: AJUSTE");
-    else
-        hal_display_print(0, 32, "Modo: RUN");
+    do
+    {
+        /*
+         * ----------- TEMPERATURA (GRANDE) -----------
+         */
 
-    /*
-     * Envia buffer para o display
-     */
-    hal_display_update();
+        hal_display_font_large();
+
+        sprintf(buffer, "%.0fC", temp);
+        hal_display_print(0, 30, buffer);
+
+        /*
+         * ----------- SETPOINT -----------
+         */
+
+        hal_display_font_small();
+
+        sprintf(buffer, "SET: %.0fC", setpoint);
+        hal_display_print(0, 50, buffer);
+
+        /*
+         * ----------- MODO -----------
+         */
+
+        if (editando)
+            hal_display_print(80, 50, "EDIT");
+        else
+            hal_display_print(80, 50, "RUN");
+
+    } while (hal_display_next()); // <-- CORREÇÃO AQUI
 }
