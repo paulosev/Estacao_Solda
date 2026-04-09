@@ -27,3 +27,9 @@ void hal_display_print_int(int x, int y, int value);
 // Fontes
 void hal_display_font_small();
 void hal_display_font_large();
+
+// Desenho de formas
+void hal_display_draw_pixel(int x, int y);
+
+// Desenho de linha (Bresenham)
+void hal_display_draw_line(int x1, int y1, int x2, int y2);

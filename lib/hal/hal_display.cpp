@@ -76,3 +76,18 @@ void hal_display_font_large()
 {
     u8g2.setFont(u8g2_font_logisoso24_tf);
 }
+
+/*
+ * ============================================================
+ * DESENHO
+ * ============================================================
+ */
+void hal_display_draw_pixel(int x, int y)
+{
+    u8g2.drawPixel(x, y);
+}
+
+void hal_display_draw_line(int x1, int y1, int x2, int y2)
+{
+    u8g2.drawLine(x1, y1, x2, y2);
+}
