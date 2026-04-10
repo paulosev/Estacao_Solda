@@ -5,7 +5,7 @@ Produto: standby automático perfis de temperatura proteção térmica
 
 # Estação de Ar Quente SMD — v3
 
-Interface gráfica para display oled 0,96" SSD1336, encoder ky-040 e u8g2 page
+Interface gráfica para display oled 0,96" SSD1306, encoder ky-040 e u8g2 page
 
 # Estação de Ar Quente SMD — v2
 
@@ -72,6 +72,11 @@ Microcontrolador: **STM32F103** (Blue Pill) ou **CH32V203**.
 | PA2 | Termopar ADC (saída MCP6022) |
 | PA3 | NTC ADC (divisor R11/RT1) |
 | PA4 | Chave magnética (pull-up interno) |
+| PB6 | Display OLED 0.96" SSD1306 (I2C) |
+| PB7 | Display OLED 0.96" SSD1306 (I2C) |
+| PB10 | Encoder KY-040 (CLK)|
+| PB11 | Encoder KY-040 (DT)|
+| PB12 | Encoder KY-040 (SW)|
 
 ---
 
