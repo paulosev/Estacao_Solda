@@ -121,7 +121,7 @@ void hal_display_set_font_scale(int s)
     switch(s) {
         case 1: u8g2.setFont(u8g2_font_6x10_tf);        break;
         case 4: u8g2.setFont(u8g2_font_profont22_tf);   break;
-        case 8: u8g2.setFont(u8g2_font_logisoso42_tf);  break;
+        case 8: u8g2.setFont(u8g2_font_logisoso38_tn);  break;  // antes era logisoso42_tf
         default: u8g2.setFont(u8g2_font_6x10_tf);       break;
     }
 }

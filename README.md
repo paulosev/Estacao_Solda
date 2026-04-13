@@ -1,138 +1,153 @@
-# Estação de Ar Quente SMD — v4
-UI: barra de potência (sigma-delta) destaque quando editando animação leve 
-Controle: compensação por airflow (fan) filtro melhor no ADC calibração do termopar 
-Produto: standby automático perfis de temperatura proteção térmica
+# 🔥 Estação de Ar Quente SMD – v4
 
-# Estação de Ar Quente SMD — v3
-
-Interface gráfica para display oled 0,96" SSD1306, encoder ky-040 e u8g2 page
-
-# Estação de Ar Quente SMD — v2
-
-Projeto de estação de retrabalho SMD com controle digital avançado.
-Microcontrolador: **STM32F103** (Blue Pill) ou **CH32V203**.
+Estação de retrabalho SMD com controle digital PID, interface OLED intuitiva e persistência de configurações.  
+Compatível com **STM32F103** (Blue Pill) e **CH32V203**.
 
 ---
 
-## Mudanças da v2
+## ✨ Destaques da versão atual (v4)
 
-### Correções de bugs
+### Interface do Usuário (UI)
+- Tela principal com temperatura em **fonte gigante**, status `RUN/STOP`, setpoint e barras de potência e fan.
+- **Ajuste direto do fan** girando o encoder na tela principal.
+- **Edição de setpoint** com valor piscante e confirmação por clique simples.
+- **Menu PID** com navegação rolante centralizada (apenas um item por vez), edição de Kp, Ki e Kd.
+- **Navegação por gestos**:
+  - Clique simples: confirma / avança.
+  - Duplo clique: cancela / volta / acessa menu PID.
+  - Clique longo: ação alternativa (ex.: confirmar e sair).
+- **Persistência total** na memória flash (EEPROM emulada): setpoint, velocidade do fan e ganhos PID são salvos automaticamente ao serem alterados.
 
-| Arquivo | Problema | Correção |
-|---|---|---|
-| `controle_temp.cpp` | Fórmula NTC errada (NTC no lado alto) | Corrigida para NTC no lado baixo: `r = R_pullup * v / (VREF - v)` |
-| `controle_temp.cpp` | Feedforward somado após limite do PID → windup | PID agora reserva espaço: `SetOutputLimits(0, 100 - ff)` |
-| `controle_temp.cpp` | Acumulador sigma-delta sem clamp inferior | Adicionado `if (acum < 0) acum = 0` |
-| `controle_temp.cpp` | Sem timing determinístico | Loop de controle rodando a 10 Hz via `millis()` |
-| `hal_io.cpp` | PWM do FAN em 8 bits (perda de resolução) | PWM configurado em 12 bits (0–4095) |
-| `app.cpp` | Desligar sistema não zerava FAN | `hal_fan_write(0)` e `hal_triac_write(false)` na transição |
-| `app.cpp` | `app.h` não existia | Arquivo criado |
-
-### Melhorias
-
-- **Detecção de falha do termopar**: leitura ADC fora da faixa desliga o aquecimento e liga o FAN no máximo
-- **Anti-windup do PID**: `iAwClamp` ativado no QuickPID
-- **Feedforward corrigido**: fan normalizado (0.0–1.0), teto `FF_MAX` configurável
-- **Constantes documentadas** em `config.h` com cálculo do `TERMOPAR_COEF`
-- **Transições de estado** explícitas em `app.cpp` (ligado→desligado e vice-versa)
+### Controle de Temperatura
+- PID (QuickPID) com anti-windup e limites ajustáveis.
+- **Feedforward** baseado na velocidade do fan (compensação de perda térmica).
+- Modulação **Sigma‑Delta** para acionamento do TRIAC (compatível com driver MOC3443).
+- **Compensação de junta fria** via NTC (leitura interna).
+- **Detecção de falha do termopar**: desliga aquecimento e força fan no máximo.
+- **Standby automático** ao encaixar a pistola no suporte magnético (temperatura reduzida).
 
 ---
 
-## Hardware
+## 🛠️ Hardware
+
+| Componente               | Descrição                                                                 |
+|--------------------------|---------------------------------------------------------------------------|
+| Microcontrolador         | STM32F103C8T6 (Blue Pill) ou CH32V203C8T6                                 |
+| Display                  | OLED 0.96" SSD1306 (I2C)                                                  |
+| Encoder                  | KY‑040 (com capacitor de debounce 100nF)                                   |
+| Amplificador termopar    | MCP6022 (ganho 151)                                                       |
+| Termopar                 | Tipo K                                                                     |
+| Driver TRIAC             | MOC3443 (zero‑cross interno)                                              |
+| TRIAC de potência        | BTA24‑600                                                                  |
+| Fan                      | 24V PWM (25 kHz, inaudível)                                                |
+| Chave magnética          | Suporte da pistola (ativa standby)                                         |
+
+### Pinagem
+
+| Pino | Função                              |
+|------|-------------------------------------|
+| PA0  | TRIAC (saída digital)               |
+| PA1  | FAN PWM (25 kHz)                    |
+| PA2  | Termopar ADC (saída MCP6022)        |
+| PA3  | NTC ADC (divisor R11/RT1)           |
+| PA4  | Chave magnética (pull‑up interno)   |
+| PB6  | I2C SCL (OLED)                      |
+| PB7  | I2C SDA (OLED)                      |
+| PB10 | Encoder CLK                         |
+| PB11 | Encoder DT                          |
+| PB12 | Encoder SW (botão)                  |
+
+---
+
+## 📁 Estrutura do Projeto
+Estacao_Solda_v4/
+├── include/
+│ └── config.h ← Constantes e pinagem
+├── lib/
+│ ├── hal/
+│ │ ├── hal_io.h / .cpp ← GPIO, ADC, PWM
+│ │ ├── hal_display.h / .cpp ← Display OLED (U8g2)
+│ │ └── hal_encoder.h / .cpp ← Encoder rotativo
+│ ├── control/
+│ │ ├── controle_temp.h / .cpp ← PID, Feedforward, Sigma‑Delta, persistência
+│ └── app/
+│ ├── app.h / .cpp ← Lógica de alto nível
+│ ├── ui.h / .cpp ← Interface gráfica e navegação
+└── src/
+└── main.cpp
+
+---
+
+## ⚙️ Funcionalidades Implementadas
+
+- [x] Tela principal com temperatura gigante e status.
+- [x] Barras de potência (heater) e fan (5 níveis).
+- [x] Ajuste direto do fan na tela principal.
+- [x] Edição de setpoint com feedback visual.
+- [x] Menu PID com navegação simplificada.
+- [x] Persistência de configurações na flash (EEPROM emulada).
+- [x] Standby automático via chave magnética.
+- [x] Compensação da junta fria (NTC).
+- [x] Detecção de termopar aberto / curto.
+- [x] Controle PID com feedforward do fan.
+- [x] Modulação Sigma‑Delta para o TRIAC.
+- [x] PWM de alta frequência para o fan (25 kHz).
+- [x] Suporte a STM32 e CH32V com o mesmo código.
+
+---
+
+## 🔧 Calibração
 
 ### Termopar
-- Amplificador: **MCP6022** (op-amp rail-to-rail)
-- Ganho: `1 + R9/R8 = 1 + 150k/1k = 151`
-- Pull-up de proteção: R10 (10MΩ) — puxa entrada para 3.3V se termopar abrir
-- Tipo de termopar: **K** (~41 µV/°C)
-- Faixa útil: 0–530°C (saturação do amp com ganho 151 e Vcc 3.3V)
-- `TERMOPAR_COEF` deve ser calibrado com ponto de referência conhecido
+1. Meça a tensão na saída do MCP6022 com o termopar a uma temperatura conhecida.
+2. Calcule: `TERMOPAR_COEF = Temperatura (°C) / Tensão (V)`.
+3. Atualize a constante `TERMOPAR_COEF` em `config.h`.
 
-### NTC (compensação de junta fria)
-- Divisor: +3.3V → R11 (10k) → nó T-AMB → RT1 NTC (10k) → GND
-- NTC no **lado baixo** do divisor
-
-### Aquecimento
-- TRIAC: **BTA24-600**
-- Driver: **MOC3443** (zero-cross interno — sem necessidade de ISR)
-- Controle: Sigma-Delta (ON/OFF sincronizado com zero-cross)
-
-### FAN
-- PWM: **25 kHz** (inaudível)
-- Controle proporcional à temperatura
+### NTC
+- A fórmula de conversão usa os parâmetros `NTC_BETA`, `NTC_R0` e `NTC_T0` definidos em `config.h`.  
+  Ajuste conforme o NTC utilizado.
 
 ---
 
-## Pinagem (STM32F103 / CH32V203)
+## 🚀 Compilação e Upload
 
-| Pino | Função |
-|------|--------|
-| PA0 | TRIAC (saída digital) |
-| PA1 | FAN PWM (25 kHz) |
-| PA2 | Termopar ADC (saída MCP6022) |
-| PA3 | NTC ADC (divisor R11/RT1) |
-| PA4 | Chave magnética (pull-up interno) |
-| PB6 | Display OLED 0.96" SSD1306 (I2C) |
-| PB7 | Display OLED 0.96" SSD1306 (I2C) |
-| PB10 | Encoder KY-040 (CLK)|
-| PB11 | Encoder KY-040 (DT)|
-| PB12 | Encoder KY-040 (SW)|
+| Plataforma | Board                    | Framework | Upload          |
+|------------|--------------------------|-----------|-----------------|
+| STM32      | bluepill_f103c8          | Arduino   | ST‑Link         |
+| CH32V      | genericCH32V203C8T6      | Arduino   | WCH‑Link (wlink)|
+
+**Bibliotecas necessárias** (definidas em `platformio.ini`):
+- `QuickPID`
+- `U8g2`
 
 ---
 
-## Estrutura do projeto
+## 📌 Pendências / Melhorias Futuras
 
-```
-Estacao_Solda_v2/
-├── include/
-│   └── config.h               ← constantes e parâmetros
-├── lib/
-│   ├── hal/
-│   │   ├── hal_io.h
-│   │   └── hal_io.cpp         ← GPIO, ADC, PWM
-│   │   └── hal_display.h
-│   │   └── hal_display.cpp    ← Display OLED SSD1306
-│   │   └── hal_encoder.h
-│   │   └── hal_encoder.cpp    ← Enconder
-│   ├── control/
-│   │   ├── controle_temp.h
-│   │   └── controle_temp.cpp  ← PID, Feedforward, Sigma-Delta
-│   └── app/
-│       ├── app.h
-│       └── app.cpp            ← lógica de alto nível
-│       └── ui.h
-│       └── ui.cpp             ← Interface Gráfica
-└── src/
-    └── main.cpp
-```
+- [ ] Autotune do PID.
+- [ ] Perfis de temperatura (ex.: chumbo / lead‑free).
+- [ ] Curva de resfriamento automático (cooldown).
+- [ ] Linearização do termopar tipo K via LUT.
+- [ ] Log de dados pela Serial para ajuste fino.
 
 ---
 
-## Calibração do termopar
+## 📝 Histórico de Versões
 
-1. Meça a tensão de saída do MCP6022 a uma temperatura conhecida (ex: 100°C com termômetro de referência)
-2. Calcule: `TERMOPAR_COEF = T_referencia / V_medida`
-3. Atualize o valor em `config.h`
+### v4
+- UI totalmente reformulada (temperatura gigante, barras, navegação simplificada).
+- Persistência de configurações via EEPROM emulada.
+- Decodificação robusta do encoder (máquina de estados).
+- Detecção de cliques simples, duplo e longo.
+- Correções na modulação Sigma‑Delta e no feedforward.
 
----
+### v3
+- Primeira versão com interface gráfica funcional (OLED + encoder).
 
-## Melhorias futuras
-
-- [ ] Autotune do PID
-- [ ] Interface OLED + encoder rotativo
-- [ ] Perfis de temperatura (lead-free, etc.)
-- [ ] Cooldown automático com curva
-- [ ] LUT para linearização do termopar tipo K
-- [ ] Log via Serial para tuning
+### v2
+- Controle PID, feedforward, detecção de falhas e suporte a STM32/CH32V.
 
 ---
 
-## Plataforma
-
-| Target | Board | Framework |
-|--------|-------|-----------|
-| STM32F103C8 | bluepill_f103c8 | Arduino (STM32duino) |
-| CH32V203C8T6 | ch32v203c8t6 | Arduino (ch32v) |
-
-Upload STM32: ST-Link  
-Monitor serial: 115200 baud
+**Desenvolvido para a comunidade de eletrônica e hobistas.**  
+Contribuições e sugestões são bem‑vindas!
