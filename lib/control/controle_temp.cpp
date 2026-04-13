@@ -230,6 +230,14 @@ void controle_set_kd(float sp_kd) {
     }
 }
 
-float controle_get_kp() { return kp; }
-float controle_get_ki() { return ki; }
-float controle_get_kd() { return kd; }
+float controle_get_kp() { 
+    return kp;
+}
+
+float controle_get_ki() { 
+    return ki; 
+}
+
+float controle_get_kd() { 
+    return kd; 
+}
