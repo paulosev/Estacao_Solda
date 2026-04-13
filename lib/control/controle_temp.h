@@ -24,5 +24,8 @@ float controle_get_power();
 // Define velocidade do fan (0–100%)
 void controle_set_fan(float fan);
 
+// Retorna velocidade do fan (0–100%)
+float controle_get_fan(); 
+
 // Retorna estado standby
 bool controle_is_standby();

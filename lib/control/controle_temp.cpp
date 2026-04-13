@@ -191,6 +191,11 @@ void controle_set_fan(float f)
     fan = f;
 }
 
+float controle_get_fan()
+{
+    return fan;
+}
+
 bool controle_is_standby()
 {
     return standby;

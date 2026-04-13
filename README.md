@@ -85,17 +85,23 @@ Microcontrolador: **STM32F103** (Blue Pill) ou **CH32V203**.
 ```
 Estacao_Solda_v2/
 ├── include/
-│   └── config.h          ← constantes e parâmetros
+│   └── config.h               ← constantes e parâmetros
 ├── lib/
 │   ├── hal/
 │   │   ├── hal_io.h
-│   │   └── hal_io.cpp    ← GPIO, ADC, PWM
+│   │   └── hal_io.cpp         ← GPIO, ADC, PWM
+│   │   └── hal_display.h
+│   │   └── hal_display.cpp    ← Display OLED SSD1306
+│   │   └── hal_encoder.h
+│   │   └── hal_encoder.cpp    ← Enconder
 │   ├── control/
 │   │   ├── controle_temp.h
 │   │   └── controle_temp.cpp  ← PID, Feedforward, Sigma-Delta
 │   └── app/
 │       ├── app.h
-│       └── app.cpp       ← lógica de alto nível
+│       └── app.cpp            ← lógica de alto nível
+│       └── ui.h
+│       └── ui.cpp             ← Interface Gráfica
 └── src/
     └── main.cpp
 ```
